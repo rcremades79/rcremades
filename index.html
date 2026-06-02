@@ -540,7 +540,7 @@ function renderPortfolio() {
       <td>€${fmt(inv)}</td>
       <td style="font-weight:500">€${fmt(val)}</td>
       <td><span class="${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}€${fmt(Math.abs(pnl))} <span style="opacity:.7">(${pp}%)</span></span></td>
-      <td><button class="btn btn-ghost" style="padding:.3rem .55rem;font-size:.8rem" onclick="deleteCoin(${i})"><i class="ti ti-trash"></i></button></td>
+      <td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:.3rem .55rem;font-size:.8rem;margin-right:.25rem" onclick="editCoin(${i})" title="Editar"><i class="ti ti-edit"></i></button><button class="btn btn-danger" style="padding:.3rem .55rem;font-size:.8rem" onclick="deleteCoin(${i})" title="Eliminar"><i class="ti ti-trash"></i></button></td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Sin activos. Pulsa "Añadir activo" para empezar.</td></tr>';
 }
@@ -674,7 +674,40 @@ function openModal(type, data) {
   const overlay = document.getElementById('modalOverlay');
   const content = document.getElementById('modalContent');
   overlay.classList.add('open');
-  if (type==='addCoin') {
+  if (type==='editCoin' && data!==undefined) {
+    const c = DATA.coins[data];
+    const currentPrice = prices[c.symbol.toUpperCase()]?.price || c.buyPrice || 0;
+    content.innerHTML = `
+      <div class="modal-header"><div class="modal-title">Editar · ${c.symbol.toUpperCase()}</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
+      <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.83rem;color:var(--accent)">
+        Precio actual de mercado: <strong>€${currentPrice < 1 ? currentPrice.toFixed(6) : fmt(currentPrice)}</strong>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Símbolo</label><input id="e-sym" value="${c.symbol.toUpperCase()}" readonly style="opacity:.5;cursor:not-allowed"></div>
+        <div class="form-group"><label>Nombre</label><input id="e-name" value="${c.name||''}"></div>
+        <div class="form-group">
+          <label>Operación</label>
+          <select id="e-op" onchange="updateEditCalc()">
+            <option value="set">Establecer cantidad total</option>
+            <option value="buy">Comprar más</option>
+            <option value="sell">Vender una parte</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="e-amt-label">Cantidad actual: ${c.amount}</label>
+          <input id="e-amt" type="number" step="any" min="0" value="${c.amount}" oninput="updateEditCalc()">
+        </div>
+        <div class="form-group"><label>Precio medio de compra (€)</label><input id="e-price" type="number" step="any" min="0" value="${c.buyPrice||0}" oninput="updateEditCalc()"></div>
+        <div class="form-group"><label>Exchange</label><input id="e-exch" value="${c.exchange||''}"></div>
+        <div id="e-calc" style="grid-column:1/-1;background:var(--surface2);border-radius:8px;padding:.75rem 1rem;font-size:.85rem;color:var(--muted);display:none"></div>
+        <div class="form-group full"><label>Notas</label><textarea id="e-notes">${c.notes||''}</textarea></div>
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+        <button class="btn btn-primary" onclick="saveCoinEdit(${data})"><i class="ti ti-check"></i> Guardar cambios</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      </div>`;
+    updateEditCalc();
+  } else if (type==='addCoin') {
     content.innerHTML = `
       <div class="modal-header"><div class="modal-title">Añadir activo</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
       <div class="form-grid">
@@ -946,6 +979,77 @@ function toast(msg, type='success') {
 // Auto-refresh cada 2 minutos
 setInterval(() => { if (MASTER_KEY) fetchPrices().then(() => { renderDashboard(); renderPortfolio(); }); fetchMarket(); }, 120000);
 
+function editCoin(i) { openModal('editCoin', i); }
+
+function updateEditCalc() {
+  const op = document.getElementById('e-op')?.value;
+  const amt = parseFloat(document.getElementById('e-amt')?.value) || 0;
+  const price = parseFloat(document.getElementById('e-price')?.value) || 0;
+  const label = document.getElementById('e-amt-label');
+  const calc = document.getElementById('e-calc');
+  if (!op || !label || !calc) return;
+
+  if (op === 'set') {
+    label.textContent = 'Nueva cantidad total';
+    calc.style.display = 'none';
+  } else if (op === 'buy') {
+    label.textContent = 'Cantidad a comprar';
+    // Find current coin index from modal title
+    const title = document.querySelector('.modal-title')?.textContent || '';
+    const sym = title.replace('Editar · ', '').trim();
+    const coin = DATA.coins.find(c => c.symbol.toUpperCase() === sym);
+    if (coin && amt > 0) {
+      const newTotal = coin.amount + amt;
+      const newAvg = ((coin.buyPrice * coin.amount) + (price * amt)) / newTotal;
+      calc.style.display = 'block';
+      calc.innerHTML = `Nueva cantidad total: <strong style="color:var(--text)">${newTotal.toFixed(6)}</strong> · Precio medio resultante: <strong style="color:var(--text)">€${newAvg.toFixed(4)}</strong>`;
+    }
+  } else if (op === 'sell') {
+    label.textContent = 'Cantidad a vender';
+    const title = document.querySelector('.modal-title')?.textContent || '';
+    const sym = title.replace('Editar · ', '').trim();
+    const coin = DATA.coins.find(c => c.symbol.toUpperCase() === sym);
+    if (coin && amt > 0) {
+      const remaining = coin.amount - amt;
+      const pnl = (price - coin.buyPrice) * amt;
+      calc.style.display = 'block';
+      calc.innerHTML = `Cantidad restante: <strong style="color:var(--text)">${Math.max(0,remaining).toFixed(6)}</strong> · P&L de esta venta: <strong style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?'+':''}€${fmt(Math.abs(pnl))}</strong>`;
+    }
+  }
+}
+
+async function saveCoinEdit(i) {
+  const op = document.getElementById('e-op').value;
+  const amt = parseFloat(document.getElementById('e-amt').value);
+  const price = parseFloat(document.getElementById('e-price').value);
+  if (isNaN(amt) || amt < 0) { toast('Cantidad inválida', 'error'); return; }
+
+  const coin = DATA.coins[i];
+  if (op === 'set') {
+    coin.amount = amt;
+    coin.buyPrice = price;
+  } else if (op === 'buy') {
+    const newTotal = coin.amount + amt;
+    coin.buyPrice = ((coin.buyPrice * coin.amount) + (price * amt)) / newTotal;
+    coin.amount = newTotal;
+  } else if (op === 'sell') {
+    if (amt > coin.amount) { toast('No puedes vender más de lo que tienes', 'error'); return; }
+    coin.amount = parseFloat((coin.amount - amt).toFixed(8));
+    if (coin.amount <= 0) {
+      if (confirm('Has vendido todo. ¿Eliminar el activo?')) { DATA.coins.splice(i,1); }
+      else { coin.amount = 0; }
+    }
+  }
+  coin.name = document.getElementById('e-name').value || coin.name;
+  coin.exchange = document.getElementById('e-exch').value;
+  coin.notes = document.getElementById('e-notes').value;
+
+  await saveData();
+  closeModal();
+  renderAll();
+  toast('Activo actualizado', 'success');
+}
+
 // ========== AUTOCOMPLETE MONEDAS ==========
 const COIN_LIST = [
   {s:'BTC',n:'Bitcoin'},{s:'ETH',n:'Ethereum'},{s:'BNB',n:'BNB'},{s:'SOL',n:'Solana'},
@@ -984,56 +1088,89 @@ const COIN_LIST = [
 
 let selectedCoinData = null;
 
+let searchTimer = null;
+
 function searchCoin(q) {
   const box = document.getElementById('coin-suggestions');
   if (!box) return;
-  const query = q.trim().toLowerCase();
-  if (query.length < 1) { box.style.display = 'none'; return; }
+  const query = q.trim();
+  if (query.length < 2) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:.75rem 1rem;color:var(--muted);font-size:.85rem">Buscando...</div>';
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => doSearchCoin(query, box), 400);
+}
 
-  // Si hay datos de mercado, buscar ahí primero (tienen precios)
+async function doSearchCoin(query, box) {
+  const lq = query.toLowerCase();
   let results = [];
   if (marketData.length) {
-    results = marketData.filter(c =>
-      c.symbol.toLowerCase().includes(query) || c.name.toLowerCase().includes(query)
-    ).slice(0, 5).map(c => ({s: c.symbol.toUpperCase(), n: c.name, price: c.current_price, img: c.image}));
+    results = marketData
+      .filter(c => c.symbol.toLowerCase().includes(lq) || c.name.toLowerCase().includes(lq))
+      .slice(0, 4)
+      .map(c => ({s: c.symbol.toUpperCase(), n: c.name, price: c.current_price, img: c.image, id: c.id}));
   }
-
-  // Completar con la lista estática si hay hueco
-  if (results.length < 8) {
-    const fromList = COIN_LIST.filter(c =>
-      c.s.toLowerCase().includes(query) || c.n.toLowerCase().includes(query)
-    ).filter(c => !results.find(r => r.s === c.s)).slice(0, 8 - results.length);
+  if (results.length < 3) {
+    const fromList = COIN_LIST
+      .filter(c => c.s.toLowerCase().includes(lq) || c.n.toLowerCase().includes(lq))
+      .filter(c => !results.find(r => r.s === c.s))
+      .slice(0, 4);
     results = [...results, ...fromList];
   }
-
-  if (!results.length) { box.style.display = 'none'; return; }
-
+  if (results.length < 3) {
+    try {
+      const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
+      const data = await r.json();
+      const fromGecko = (data.coins || [])
+        .filter(c => !results.find(r => r.s === c.symbol.toUpperCase()))
+        .slice(0, 8)
+        .map(c => ({s: c.symbol.toUpperCase(), n: c.name, img: c.large || c.thumb, id: c.id}));
+      results = [...results, ...fromGecko];
+    } catch(e) {}
+  }
+  if (!results.length) {
+    box.innerHTML = `<div style="padding:.75rem 1rem;color:var(--muted);font-size:.85rem">Sin resultados para "${query}"</div>`;
+    return;
+  }
   box.style.display = 'block';
-  box.innerHTML = results.map(c => `
-    <div onclick="selectCoin('${c.s}','${c.n.replace(/'/g,"\\'")}',${c.price||'null'})"
+  box.innerHTML = results.map(c => {
+    const priceStr = c.price
+      ? `<span style="font-size:.8rem;color:var(--muted)">€${c.price < 0.01 ? c.price.toFixed(6) : c.price < 1 ? c.price.toFixed(4) : fmt(c.price)}</span>`
+      : `<span style="font-size:.75rem;color:var(--muted)">ver precio</span>`;
+    const sym = c.s.replace(/'/g, "\\'");
+    const name = c.n.replace(/'/g, "\\'");
+    const gid = (c.id || '').replace(/'/g, "\\'");
+    return `<div onclick="selectCoin('${sym}','${name}',${c.price || 'null'},'${gid}')"
       style="display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;cursor:pointer;transition:background .1s"
-      onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''"
-    >
-      ${c.img ? `<img src="${c.img}" style="width:24px;height:24px;border-radius:50%;object-fit:cover">` : `<div style="width:24px;height:24px;border-radius:50%;background:${coinColor(c.s)};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;font-weight:700">${c.s.substring(0,3)}</div>`}
-      <div style="flex:1">
+      onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''">
+      ${c.img
+        ? `<img src="${c.img}" style="width:26px;height:26px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">`
+        : `<div style="width:26px;height:26px;border-radius:50%;background:${coinColor(c.s)};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;font-weight:700">${c.s.substring(0,3)}</div>`}
+      <div style="flex:1;min-width:0">
         <span style="font-weight:600;font-size:.875rem">${c.s}</span>
         <span style="color:var(--muted);font-size:.8rem;margin-left:.4rem">${c.n}</span>
       </div>
-      ${c.price ? `<span style="font-size:.8rem;color:var(--muted)">€${c.price < 1 ? c.price.toFixed(4) : fmt(c.price)}</span>` : ''}
-    </div>
-  `).join('');
+      ${priceStr}
+    </div>`;
+  }).join('');
 }
 
-function selectCoin(sym, name, price) {
+async function selectCoin(sym, name, price, geckoId) {
   document.getElementById('m-sym').value = sym;
   document.getElementById('m-name').value = name;
-  if (price) document.getElementById('m-price').value = price.toFixed(price < 1 ? 6 : 2);
   document.getElementById('coin-suggestions').style.display = 'none';
+  if (!price && geckoId) {
+    try {
+      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=eur`);
+      const data = await r.json();
+      price = data[geckoId]?.eur || null;
+    } catch(e) {}
+  }
+  if (price) document.getElementById('m-price').value = price < 0.01 ? price.toFixed(8) : price < 1 ? price.toFixed(6) : price.toFixed(2);
   document.getElementById('m-amt').focus();
   selectedCoinData = {sym, name, price};
 }
 
-// Cerrar sugerencias al hacer click fuera
 document.addEventListener('click', e => {
   const box = document.getElementById('coin-suggestions');
   if (box && !box.contains(e.target) && e.target.id !== 'm-sym') box.style.display = 'none';
