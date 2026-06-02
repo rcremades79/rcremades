@@ -678,10 +678,14 @@ function openModal(type, data) {
     content.innerHTML = `
       <div class="modal-header"><div class="modal-title">Añadir activo</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
       <div class="form-grid">
-        <div class="form-group"><label>Símbolo *</label><input id="m-sym" placeholder="BTC" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
-        <div class="form-group"><label>Nombre</label><input id="m-name" placeholder="Bitcoin"></div>
+        <div class="form-group" style="position:relative">
+          <label>Buscar moneda *</label>
+          <input id="m-sym" placeholder="Escribe símbolo o nombre... BTC, Ethereum..." autocomplete="off" oninput="searchCoin(this.value)">
+          <div id="coin-suggestions" style="position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;z-index:999;max-height:200px;overflow-y:auto;display:none;margin-top:2px"></div>
+        </div>
+        <div class="form-group"><label>Nombre</label><input id="m-name" placeholder="Se rellena automáticamente"></div>
         <div class="form-group"><label>Cantidad *</label><input id="m-amt" type="number" step="any" min="0" placeholder="0.5"></div>
-        <div class="form-group"><label>Precio de compra (€) *</label><input id="m-price" type="number" step="any" min="0" placeholder="45000"></div>
+        <div class="form-group"><label>Precio de compra (€) *</label><input id="m-price" type="number" step="any" min="0" placeholder="Se rellena automáticamente"></div>
         <div class="form-group"><label>Fecha de compra</label><input id="m-date" type="date"></div>
         <div class="form-group"><label>Exchange</label><input id="m-exch" placeholder="Binance, Kraken..."></div>
         <div class="form-group full"><label>Notas</label><textarea id="m-notes" placeholder="Estrategia, objetivo de precio..."></textarea></div>
@@ -775,7 +779,9 @@ async function saveCoin() {
   const amt = parseFloat(document.getElementById('m-amt').value);
   const price = parseFloat(document.getElementById('m-price').value);
   if (!sym || isNaN(amt) || isNaN(price)) { toast('Rellena los campos obligatorios (*)', 'error'); return; }
-  DATA.coins.push({symbol:sym, name:document.getElementById('m-name').value, amount:amt, buyPrice:price, date:document.getElementById('m-date').value, exchange:document.getElementById('m-exch').value, notes:document.getElementById('m-notes').value});
+  const name = document.getElementById('m-name').value || sym;
+  DATA.coins.push({symbol:sym, name, amount:amt, buyPrice:price, date:document.getElementById('m-date').value, exchange:document.getElementById('m-exch').value, notes:document.getElementById('m-notes').value});
+  selectedCoinData = null;
   await saveData();
   closeModal();
   await fetchPrices();
@@ -940,7 +946,100 @@ function toast(msg, type='success') {
 // Auto-refresh cada 2 minutos
 setInterval(() => { if (MASTER_KEY) fetchPrices().then(() => { renderDashboard(); renderPortfolio(); }); fetchMarket(); }, 120000);
 
-// ========== MERCADO ==========
+// ========== AUTOCOMPLETE MONEDAS ==========
+const COIN_LIST = [
+  {s:'BTC',n:'Bitcoin'},{s:'ETH',n:'Ethereum'},{s:'BNB',n:'BNB'},{s:'SOL',n:'Solana'},
+  {s:'XRP',n:'XRP'},{s:'ADA',n:'Cardano'},{s:'AVAX',n:'Avalanche'},{s:'DOT',n:'Polkadot'},
+  {s:'MATIC',n:'Polygon'},{s:'LINK',n:'Chainlink'},{s:'UNI',n:'Uniswap'},{s:'ATOM',n:'Cosmos'},
+  {s:'NEAR',n:'NEAR Protocol'},{s:'FTM',n:'Fantom'},{s:'ALGO',n:'Algorand'},{s:'VET',n:'VeChain'},
+  {s:'ICP',n:'Internet Computer'},{s:'FIL',n:'Filecoin'},{s:'DOGE',n:'Dogecoin'},{s:'SHIB',n:'Shiba Inu'},
+  {s:'LTC',n:'Litecoin'},{s:'BCH',n:'Bitcoin Cash'},{s:'APT',n:'Aptos'},{s:'ARB',n:'Arbitrum'},
+  {s:'OP',n:'Optimism'},{s:'SUI',n:'Sui'},{s:'INJ',n:'Injective'},{s:'TIA',n:'Celestia'},
+  {s:'WIF',n:'dogwifhat'},{s:'PEPE',n:'Pepe'},{s:'BONK',n:'Bonk'},{s:'JUP',n:'Jupiter'},
+  {s:'SAND',n:'The Sandbox'},{s:'MANA',n:'Decentraland'},{s:'AXS',n:'Axie Infinity'},
+  {s:'AAVE',n:'Aave'},{s:'MKR',n:'Maker'},{s:'SNX',n:'Synthetix'},{s:'CRV',n:'Curve DAO'},
+  {s:'LDO',n:'Lido DAO'},{s:'RUNE',n:'THORChain'},{s:'KSM',n:'Kusama'},{s:'EGLD',n:'MultiversX'},
+  {s:'FLOW',n:'Flow'},{s:'XTZ',n:'Tezos'},{s:'EOS',n:'EOS'},{s:'XLM',n:'Stellar'},
+  {s:'HBAR',n:'Hedera'},{s:'QNT',n:'Quant'},{s:'GRT',n:'The Graph'},{s:'ENS',n:'Ethereum Name Service'},
+  {s:'1INCH',n:'1inch'},{s:'COMP',n:'Compound'},{s:'BAL',n:'Balancer'},{s:'YFI',n:'yearn.finance'},
+  {s:'SUSHI',n:'SushiSwap'},{s:'CAKE',n:'PancakeSwap'},{s:'ROSE',n:'Oasis Network'},
+  {s:'ZIL',n:'Zilliqa'},{s:'ONE',n:'Harmony'},{s:'ICX',n:'ICON'},{s:'KAVA',n:'Kava'},
+  {s:'BAND',n:'Band Protocol'},{s:'ANKR',n:'Ankr'},{s:'CRO',n:'Cronos'},{s:'FTT',n:'FTX Token'},
+  {s:'GMT',n:'STEPN'},{s:'APE',n:'ApeCoin'},{s:'LRC',n:'Loopring'},{s:'IMX',n:'Immutable'},
+  {s:'BLUR',n:'Blur'},{s:'MAGIC',n:'Magic'},{s:'GMX',n:'GMX'},{s:'STX',n:'Stacks'},
+  {s:'CFX',n:'Conflux'},{s:'AGIX',n:'SingularityNET'},{s:'FET',n:'Fetch.ai'},{s:'OCEAN',n:'Ocean Protocol'},
+  {s:'RNDR',n:'Render'},{s:'HNT',n:'Helium'},{s:'IOTA',n:'IOTA'},{s:'XMR',n:'Monero'},
+  {s:'ZEC',n:'Zcash'},{s:'DASH',n:'Dash'},{s:'DCR',n:'Decred'},{s:'NEO',n:'NEO'},
+  {s:'WAVES',n:'Waves'},{s:'SC',n:'Siacoin'},{s:'DGB',n:'DigiByte'},{s:'RVN',n:'Ravencoin'},
+  {s:'W',n:'Wormhole'},{s:'PYTH',n:'Pyth Network'},{s:'SEI',n:'Sei'},{s:'STRK',n:'Starknet'},
+  {s:'MEME',n:'Memecoin'},{s:'FLOKI',n:'Floki'},{s:'BABYDOGE',n:'Baby Doge Coin'},
+  {s:'TON',n:'Toncoin'},{s:'NOT',n:'Notcoin'},{s:'DOGS',n:'Dogs'},{s:'HMSTR',n:'Hamster Kombat'},
+  {s:'USDT',n:'Tether'},{s:'USDC',n:'USD Coin'},{s:'DAI',n:'Dai'},{s:'BUSD',n:'Binance USD'},
+  {s:'TUSD',n:'TrueUSD'},{s:'FRAX',n:'Frax'},{s:'LUSD',n:'Liquity USD'},
+  {s:'WBTC',n:'Wrapped Bitcoin'},{s:'STETH',n:'Lido Staked ETH'},{s:'CBETH',n:'Coinbase Wrapped Staked ETH'},
+  {s:'PENDLE',n:'Pendle'},{s:'ETHFI',n:'Ether.fi'},{s:'ENA',n:'Ethena'},{s:'LISTA',n:'Lista DAO'},
+  {s:'ZK',n:'ZKsync'},{s:'TAIKO',n:'Taiko'},{s:'ZETA',n:'ZetaChain'},{s:'ALT',n:'AltLayer'},
+  {s:'MANTA',n:'Manta Network'},{s:'PORTAL',n:'Portal'},{s:'DYM',n:'Dymension'},
+];
+
+let selectedCoinData = null;
+
+function searchCoin(q) {
+  const box = document.getElementById('coin-suggestions');
+  if (!box) return;
+  const query = q.trim().toLowerCase();
+  if (query.length < 1) { box.style.display = 'none'; return; }
+
+  // Si hay datos de mercado, buscar ahí primero (tienen precios)
+  let results = [];
+  if (marketData.length) {
+    results = marketData.filter(c =>
+      c.symbol.toLowerCase().includes(query) || c.name.toLowerCase().includes(query)
+    ).slice(0, 5).map(c => ({s: c.symbol.toUpperCase(), n: c.name, price: c.current_price, img: c.image}));
+  }
+
+  // Completar con la lista estática si hay hueco
+  if (results.length < 8) {
+    const fromList = COIN_LIST.filter(c =>
+      c.s.toLowerCase().includes(query) || c.n.toLowerCase().includes(query)
+    ).filter(c => !results.find(r => r.s === c.s)).slice(0, 8 - results.length);
+    results = [...results, ...fromList];
+  }
+
+  if (!results.length) { box.style.display = 'none'; return; }
+
+  box.style.display = 'block';
+  box.innerHTML = results.map(c => `
+    <div onclick="selectCoin('${c.s}','${c.n.replace(/'/g,"\\'")}',${c.price||'null'})"
+      style="display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;cursor:pointer;transition:background .1s"
+      onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''"
+    >
+      ${c.img ? `<img src="${c.img}" style="width:24px;height:24px;border-radius:50%;object-fit:cover">` : `<div style="width:24px;height:24px;border-radius:50%;background:${coinColor(c.s)};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;font-weight:700">${c.s.substring(0,3)}</div>`}
+      <div style="flex:1">
+        <span style="font-weight:600;font-size:.875rem">${c.s}</span>
+        <span style="color:var(--muted);font-size:.8rem;margin-left:.4rem">${c.n}</span>
+      </div>
+      ${c.price ? `<span style="font-size:.8rem;color:var(--muted)">€${c.price < 1 ? c.price.toFixed(4) : fmt(c.price)}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+function selectCoin(sym, name, price) {
+  document.getElementById('m-sym').value = sym;
+  document.getElementById('m-name').value = name;
+  if (price) document.getElementById('m-price').value = price.toFixed(price < 1 ? 6 : 2);
+  document.getElementById('coin-suggestions').style.display = 'none';
+  document.getElementById('m-amt').focus();
+  selectedCoinData = {sym, name, price};
+}
+
+// Cerrar sugerencias al hacer click fuera
+document.addEventListener('click', e => {
+  const box = document.getElementById('coin-suggestions');
+  if (box && !box.contains(e.target) && e.target.id !== 'm-sym') box.style.display = 'none';
+});
+
+
 let marketData = [];
 
 async function fetchMarket() {
