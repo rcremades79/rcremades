@@ -354,6 +354,7 @@ async function unlock() {
     await loadData();
     document.getElementById('lockScreen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    patchCoinGeckoIds();
     fetchPrices().then(() => renderAll());
     fetchMarket();
     renderAll();
@@ -410,14 +411,18 @@ function nav(page) {
 }
 
 async function fetchPrices() {
-  const syms = [...new Set(DATA.coins.map(c => c.symbol.toUpperCase()))];
-  if (!syms.length) { updateLastUpdate(); return; }
-  const ids = syms.map(s => COIN_IDS[s] || s.toLowerCase()).filter(Boolean).join(',');
+  if (!DATA.coins.length) { updateLastUpdate(); return; }
+  // Build map: geckoId -> symbol, using stored geckoId or fallback
+  const idMap = {};
+  DATA.coins.forEach(c => {
+    const id = c.geckoId || COIN_IDS[c.symbol.toUpperCase()] || c.symbol.toLowerCase();
+    idMap[id] = c.symbol.toUpperCase();
+  });
+  const ids = Object.keys(idMap).join(',');
   try {
     const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur&include_24hr_change=true`);
     const data = await r.json();
-    syms.forEach(sym => {
-      const id = COIN_IDS[sym] || sym.toLowerCase();
+    Object.entries(idMap).forEach(([id, sym]) => {
       if (data[id]) prices[sym] = {price: data[id].eur, change: data[id].eur_24h_change};
     });
     updateLastUpdate();
@@ -457,6 +462,18 @@ function coinColor(sym) {
 }
 
 function renderAll() { renderDashboard(); renderPortfolio(); renderAirdrops(); renderWallets(); renderTx(); }
+
+function patchCoinGeckoIds() {
+  // For coins added before geckoId was stored, assign best-guess id
+  let changed = false;
+  DATA.coins.forEach(c => {
+    if (!c.geckoId) {
+      c.geckoId = COIN_IDS[c.symbol.toUpperCase()] || c.symbol.toLowerCase();
+      changed = true;
+    }
+  });
+  if (changed) saveData();
+}
 
 function renderDashboard() {
   const {total, invested, pnl} = calcPortfolio();
@@ -813,7 +830,8 @@ async function saveCoin() {
   const price = parseFloat(document.getElementById('m-price').value);
   if (!sym || isNaN(amt) || isNaN(price)) { toast('Rellena los campos obligatorios (*)', 'error'); return; }
   const name = document.getElementById('m-name').value || sym;
-  DATA.coins.push({symbol:sym, name, amount:amt, buyPrice:price, date:document.getElementById('m-date').value, exchange:document.getElementById('m-exch').value, notes:document.getElementById('m-notes').value});
+  const geckoId = selectedCoinData?.geckoId || COIN_IDS[sym] || sym.toLowerCase();
+  DATA.coins.push({symbol:sym, name, amount:amt, buyPrice:price, geckoId, date:document.getElementById('m-date').value, exchange:document.getElementById('m-exch').value, notes:document.getElementById('m-notes').value});
   selectedCoinData = null;
   await saveData();
   closeModal();
@@ -1168,7 +1186,7 @@ async function selectCoin(sym, name, price, geckoId) {
   }
   if (price) document.getElementById('m-price').value = price < 0.01 ? price.toFixed(8) : price < 1 ? price.toFixed(6) : price.toFixed(2);
   document.getElementById('m-amt').focus();
-  selectedCoinData = {sym, name, price};
+  selectedCoinData = {sym, name, price, geckoId};
 }
 
 document.addEventListener('click', e => {
