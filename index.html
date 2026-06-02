@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoVault</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--surface3:#232f45;
+    --border:#2a3550;--text:#e8edf5;--muted:#7a8ba8;--accent:#3b82f6;
+    --green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#a855f7;
+    --font:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+  #lockScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:2rem}
+  .lock-logo{font-size:3rem;color:var(--accent)}
+  .lock-title{font-size:1.8rem;font-weight:700;letter-spacing:-0.03em}
+  .lock-sub{color:var(--muted);font-size:.95rem}
+  .lock-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:.8rem 1.2rem;border-radius:12px;font-size:1rem;width:280px;text-align:center;letter-spacing:0.2em;outline:none}
+  .lock-input:focus{border-color:var(--accent)}
+  .lock-btn{background:var(--accent);color:#fff;border:none;padding:.8rem 2rem;border-radius:12px;font-size:1rem;font-weight:600;cursor:pointer;width:280px;transition:opacity .2s}
+  .lock-btn:hover{opacity:.9}
+  .lock-err{color:var(--red);font-size:.85rem;min-height:1.2em}
+  #app{display:none;min-height:100vh}
+  .sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);padding:1.5rem 0;position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100}
+  .logo{padding:0 1.5rem 1.5rem;font-size:1.2rem;font-weight:700;display:flex;align-items:center;gap:.6rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+  .logo i{color:var(--accent);font-size:1.4rem}
+  .nav-item{display:flex;align-items:center;gap:.7rem;padding:.65rem 1.5rem;cursor:pointer;color:var(--muted);font-size:.9rem;transition:all .15s;border-left:3px solid transparent}
+  .nav-item:hover{color:var(--text);background:var(--surface2)}
+  .nav-item.active{color:var(--accent);background:var(--surface2);border-left-color:var(--accent)}
+  .nav-item i{font-size:1.1rem}
+  .sidebar-footer{margin-top:auto;padding:1rem 1.5rem;border-top:1px solid var(--border)}
+  .lock-out{display:flex;align-items:center;gap:.6rem;color:var(--muted);cursor:pointer;font-size:.85rem}
+  .lock-out:hover{color:var(--red)}
+  .main{margin-left:220px;padding:2rem;min-height:100vh}
+  .page{display:none}
+  .page.active{display:block}
+  .page-header{margin-bottom:2rem}
+  .page-title{font-size:1.6rem;font-weight:700;letter-spacing:-0.02em}
+  .page-sub{color:var(--muted);font-size:.9rem;margin-top:.25rem}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem}
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem}
+  .stat-label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem}
+  .stat-value{font-size:1.6rem;font-weight:700;letter-spacing:-0.02em}
+  .stat-change{font-size:.8rem;margin-top:.3rem}
+  .pos{color:var(--green)}.neg{color:var(--red)}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:.9rem}
+  th{padding:.7rem 1rem;text-align:left;color:var(--muted);font-weight:500;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+  td{padding:.85rem 1rem;border-bottom:1px solid var(--border)}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:var(--surface2)}
+  .coin-cell{display:flex;align-items:center;gap:.75rem}
+  .coin-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;flex-shrink:0}
+  .badge{padding:.25rem .6rem;border-radius:6px;font-size:.75rem;font-weight:600}
+  .badge-green{background:rgba(34,197,94,.15);color:var(--green)}
+  .badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+  .badge-amber{background:rgba(245,158,11,.15);color:var(--amber)}
+  .badge-blue{background:rgba(59,130,246,.15);color:var(--accent)}
+  .badge-purple{background:rgba(168,85,247,.15);color:var(--purple)}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+  .form-group{display:flex;flex-direction:column;gap:.4rem}
+  .form-group.full{grid-column:1/-1}
+  label{font-size:.8rem;color:var(--muted);font-weight:500}
+  input,select,textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:.65rem .9rem;border-radius:8px;font-size:.9rem;outline:none;font-family:var(--font);transition:border-color .15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  select option{background:var(--surface2)}
+  textarea{resize:vertical;min-height:80px}
+  .btn{padding:.65rem 1.25rem;border-radius:8px;font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:.4rem}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{opacity:.9}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+  .btn-ghost:hover{color:var(--text);background:var(--surface2)}
+  .btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+  .btn-danger:hover{background:rgba(239,68,68,.25)}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem}
+  .modal-overlay.open{display:flex}
+  #setupOverlay{z-index:2000}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2rem;width:100%;max-width:560px;max-height:90vh;overflow-y:auto}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+  .modal-title{font-size:1.15rem;font-weight:700}
+  .modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.3rem;display:flex}
+  .modal-close:hover{color:var(--text)}
+  .airdrop-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+  .airdrop-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem}
+  .airdrop-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
+  .airdrop-name{font-weight:600;font-size:1rem}
+  .progress-bar{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin:.5rem 0}
+  .progress-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .3s}
+  .task-list{display:flex;flex-direction:column;gap:.35rem;margin-top:.75rem}
+  .task-item{display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--muted);cursor:pointer}
+  .task-item.done{color:var(--green);text-decoration:line-through;text-decoration-color:rgba(34,197,94,.4)}
+  .task-check{width:16px;height:16px;border:1.5px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+  .task-item.done .task-check{background:var(--green);border-color:var(--green);color:#fff;font-size:11px}
+  .wallet-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem;position:relative}
+  .wallet-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+  .key-hidden{font-family:monospace;font-size:.8rem;letter-spacing:.05em;color:var(--muted);word-break:break-all}
+  .reveal-btn{background:none;border:none;color:var(--accent);cursor:pointer;font-size:.75rem;margin-top:.3rem;display:flex;align-items:center;gap:.3rem}
+  .chart-container{position:relative;height:220px;margin-top:1rem}
+  .flex{display:flex}.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}
+  .items-center{align-items:center}.justify-between{justify-content:space-between}
+  .mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mt-4{margin-top:1rem}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+  .toast{position:fixed;bottom:2rem;right:2rem;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.75rem 1.25rem;font-size:.875rem;z-index:9999;transform:translateY(100px);opacity:0;transition:all .3s;display:flex;align-items:center;gap:.5rem}
+  .toast.show{transform:translateY(0);opacity:1}
+  .toast.success{border-color:rgba(34,197,94,.4);color:var(--green)}
+  .toast.error{border-color:rgba(239,68,68,.4);color:var(--red)}
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- PANTALLA DE BLOQUEO -->
+<div id="lockScreen">
+  <i class="ti ti-shield-lock lock-logo"></i>
+  <div style="text-align:center">
+    <div class="lock-title">CryptoVault</div>
+    <div class="lock-sub">Tu portfolio. Cifrado. 100% local.</div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:.75rem">
+    <input class="lock-input" type="password" id="masterPwd" placeholder="Contraseña maestra" autocomplete="current-password">
+    <button class="lock-btn" onclick="unlock()"><i class="ti ti-lock-open"></i> &nbsp;Entrar</button>
+    <div class="lock-err" id="lockErr"></div>
+    <button onclick="showSetup()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;text-decoration:underline">Primera vez · Crear vault nuevo</button>
+  </div>
+</div>
+
+<!-- SETUP MODAL -->
+<div class="modal-overlay" id="setupOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Crear nuevo vault</div>
+      <button class="modal-close" onclick="closeSetup()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="form-group"><label>Nueva contraseña maestra</label><input type="password" id="newPwd" placeholder="Mínimo 8 caracteres"></div>
+      <div class="form-group"><label>Confirmar contraseña</label><input type="password" id="confirmPwd" placeholder="Repite la contraseña"></div>
+      <div class="lock-err" id="setupErr"></div>
+      <button class="btn btn-primary" onclick="createVault()" style="width:100%;justify-content:center">Crear vault</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app">
+  <nav class="sidebar">
+    <div class="logo"><i class="ti ti-shield-lock"></i> CryptoVault</div>
+    <div class="nav-item active" onclick="nav('dashboard')"><i class="ti ti-layout-dashboard"></i> Dashboard</div>
+    <div class="nav-item" onclick="nav('portfolio')"><i class="ti ti-chart-pie"></i> Portfolio</div>
+    <div class="nav-item" onclick="nav('airdrops')"><i class="ti ti-rocket"></i> Airdrops</div>
+    <div class="nav-item" onclick="nav('wallets')"><i class="ti ti-wallet"></i> Wallets</div>
+    <div class="nav-item" onclick="nav('transactions')"><i class="ti ti-arrows-exchange"></i> Transacciones</div>
+    <div class="nav-item" onclick="nav('settings')"><i class="ti ti-settings"></i> Configuración</div>
+    <div class="sidebar-footer">
+      <div class="lock-out" onclick="lockApp()"><i class="ti ti-lock"></i> Bloquear</div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header flex justify-between items-center">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub" id="lastUpdate">Cargando precios...</div>
+        </div>
+        <button class="btn btn-ghost" onclick="refreshPrices()"><i class="ti ti-refresh"></i> Actualizar</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Portfolio total</div><div class="stat-value" id="totalValue">€0,00</div><div class="stat-change" id="totalChange" style="color:var(--muted)">—</div></div>
+        <div class="stat-card"><div class="stat-label">P&amp;L total</div><div class="stat-value" id="totalPnl">€0,00</div><div class="stat-change" id="pnlPct" style="color:var(--muted)">—</div></div>
+        <div class="stat-card"><div class="stat-label">Activos</div><div class="stat-value" id="totalAssets">0</div><div class="stat-change" style="color:var(--muted)">monedas</div></div>
+        <div class="stat-card"><div class="stat-label">Airdrops activos</div><div class="stat-value" id="activeAirdrops">0</div><div class="stat-change" style="color:var(--muted)">en progreso</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:.5rem">Distribución del portfolio</div>
+          <div class="chart-container"><canvas id="pieChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:1rem">Top holdings</div>
+          <div id="topHoldings" style="display:flex;flex-direction:column;gap:.8rem"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <div style="font-weight:600">Mercado · Precios en tiempo real</div>
+          <div style="font-size:.75rem;color:var(--muted)">Top 20 por capitalización</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Moneda</th><th>Precio</th><th>1h</th><th>24h</th><th>7d</th><th>Cap. mercado</th></tr></thead>
+            <tbody id="marketTable"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Cargando mercado...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PORTFOLIO -->
+    <div class="page" id="page-portfolio">
+      <div class="page-header flex justify-between items-center">
+        <div><div class="page-title">Portfolio</div><div class="page-sub">Gestiona tus inversiones</div></div>
+        <button class="btn btn-primary" onclick="openModal('addCoin')"><i class="ti ti-plus"></i> Añadir activo</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Moneda</th><th>Precio actual</th><th>24h</th><th>Cantidad</th><th>Invertido</th><th>Valor actual</th><th>P&amp;L</th><th></th></tr></thead>
+        <tbody id="portfolioTable"></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- AIRDROPS -->
+    <div class="page" id="page-airdrops">
+      <div class="page-header flex justify-between items-center">
+        <div><div class="page-title">Airdrops</div><div class="page-sub">Seguimiento de participaciones y tareas</div></div>
+        <button class="btn btn-primary" onclick="openModal('addAirdrop')"><i class="ti ti-plus"></i> Añadir</button>
+      </div>
+      <div class="airdrop-grid" id="airdropGrid"></div>
+    </div>
+
+    <!-- WALLETS -->
+    <div class="page" id="page-wallets">
+      <div class="page-header flex justify-between items-center">
+        <div><div class="page-title">Wallets</div><div class="page-sub">Claves cifradas con AES-256 · Solo tú las ves</div></div>
+        <button class="btn btn-primary" onclick="openModal('addWallet')"><i class="ti ti-plus"></i> Añadir wallet</button>
+      </div>
+      <div class="wallet-grid" id="walletGrid"></div>
+    </div>
+
+    <!-- TRANSACCIONES -->
+    <div class="page" id="page-transactions">
+      <div class="page-header flex justify-between items-center">
+        <div><div class="page-title">Transacciones</div><div class="page-sub">Historial de compras y ventas</div></div>
+        <button class="btn btn-primary" onclick="openModal('addTx')"><i class="ti ti-plus"></i> Registrar</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Moneda</th><th>Cantidad</th><th>Precio</th><th>Total</th><th>Exchange</th><th>Notas</th><th></th></tr></thead>
+        <tbody id="txTable"></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- CONFIGURACIÓN -->
+    <div class="page" id="page-settings">
+      <div class="page-header"><div class="page-title">Configuración</div><div class="page-sub">Seguridad y datos</div></div>
+      <div style="display:flex;flex-direction:column;gap:1rem;max-width:560px">
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:1rem">Cambiar contraseña maestra</div>
+          <div style="display:flex;flex-direction:column;gap:.75rem">
+            <div class="form-group"><label>Contraseña actual</label><input type="password" id="currPwd"></div>
+            <div class="form-group"><label>Nueva contraseña</label><input type="password" id="nPwd"></div>
+            <div class="form-group"><label>Confirmar nueva</label><input type="password" id="nPwd2"></div>
+            <button class="btn btn-primary" onclick="changePwd()" style="align-self:flex-start">Cambiar contraseña</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:1rem">Backup y datos</div>
+          <div style="display:flex;flex-direction:column;gap:.75rem">
+            <button class="btn btn-ghost" onclick="exportData()"><i class="ti ti-download"></i> Exportar backup (JSON cifrado)</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()"><i class="ti ti-upload"></i> Importar backup</button>
+            <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
+            <button class="btn btn-danger" onclick="confirmClear()"><i class="ti ti-trash"></i> Borrar todos los datos</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:.75rem">🚀 Cómo desplegarlo gratis</div>
+          <div style="font-size:.85rem;color:var(--muted);line-height:1.8">
+            <p style="margin-bottom:.75rem"><strong style="color:var(--text)">Opción 1 — GitHub Pages (recomendado):</strong><br>
+            1. Crea un repositorio privado en github.com<br>
+            2. Sube este archivo como <code style="color:var(--accent)">index.html</code><br>
+            3. Settings → Pages → Deploy from branch<br>
+            4. Accedes desde cualquier dispositivo con tu cuenta GitHub</p>
+            <p style="margin-bottom:.75rem"><strong style="color:var(--text)">Opción 2 — Netlify Drop:</strong><br>
+            Ve a app.netlify.com/drop y arrastra este archivo. En 30 segundos tienes una URL.</p>
+            <p><strong style="color:var(--accent)">Seguridad:</strong> Todos los datos se guardan cifrados (AES-256) en el localStorage de tu navegador. Ningún servidor externo tiene acceso a tus claves. El cifrado ocurre 100% en tu dispositivo.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL PRINCIPAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let MASTER_KEY = null;
+let OLD_KEY = null;
+let DATA = {coins:[],airdrops:[],wallets:[],transactions:[]};
+let prices = {};
+let pieChart = null;
+
+const COIN_IDS = {
+  'BTC':'bitcoin','ETH':'ethereum','BNB':'binancecoin','SOL':'solana',
+  'ADA':'cardano','XRP':'ripple','DOT':'polkadot','AVAX':'avalanche-2',
+  'MATIC':'matic-network','LINK':'chainlink','UNI':'uniswap','ATOM':'cosmos',
+  'NEAR':'near','FTM':'fantom','ALGO':'algorand','VET':'vechain',
+  'ICP':'internet-computer','FIL':'filecoin','DOGE':'dogecoin','SHIB':'shiba-inu',
+  'LTC':'litecoin','BCH':'bitcoin-cash','APT':'aptos','ARB':'arbitrum',
+  'OP':'optimism','SUI':'sui','INJ':'injective-protocol','TIA':'celestia',
+  'WIF':'dogwifcoin','PEPE':'pepe','BONK':'bonk','JUP':'jupiter-ag',
+  'SAND':'the-sandbox','MANA':'decentraland','AXS':'axie-infinity'
+};
+
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const km = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits','deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:enc.encode(salt),iterations:100000,hash:'SHA-256'}, km, {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
+}
+
+async function encrypt(text, key) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, enc.encode(text));
+  return btoa(String.fromCharCode(...iv)) + '.' + btoa(String.fromCharCode(...new Uint8Array(ct)));
+}
+
+async function decrypt(data, key) {
+  const [ivB64, ctB64] = data.split('.');
+  const iv = Uint8Array.from(atob(ivB64), c=>c.charCodeAt(0));
+  const ct = Uint8Array.from(atob(ctB64), c=>c.charCodeAt(0));
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM',iv}, key, ct);
+  return new TextDecoder().decode(pt);
+}
+
+async function saveData() {
+  if (!MASTER_KEY) return;
+  const enc = await encrypt(JSON.stringify(DATA), MASTER_KEY);
+  localStorage.setItem('cv_data', enc);
+}
+
+async function loadData() {
+  const enc = localStorage.getItem('cv_data');
+  if (!enc) return;
+  const json = await decrypt(enc, MASTER_KEY);
+  DATA = JSON.parse(json);
+}
+
+async function unlock() {
+  const pwd = document.getElementById('masterPwd').value;
+  if (!pwd) return;
+  const salt = localStorage.getItem('cv_salt');
+  if (!salt) { document.getElementById('lockErr').textContent = 'No hay vault. Crea uno nuevo.'; return; }
+  try {
+    MASTER_KEY = await deriveKey(pwd, salt);
+    await loadData();
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    fetchPrices().then(() => renderAll());
+    fetchMarket();
+    renderAll();
+  } catch(e) {
+    document.getElementById('lockErr').textContent = 'Contraseña incorrecta';
+    MASTER_KEY = null;
+  }
+}
+
+document.getElementById('masterPwd').addEventListener('keydown', e => { if(e.key==='Enter') unlock(); });
+
+function showSetup() { document.getElementById('setupOverlay').classList.add('open'); }
+function closeSetup() { document.getElementById('setupOverlay').classList.remove('open'); }
+
+async function createVault() {
+  const p1 = document.getElementById('newPwd').value;
+  const p2 = document.getElementById('confirmPwd').value;
+  const err = document.getElementById('setupErr');
+  if (p1.length < 8) { err.textContent = 'Mínimo 8 caracteres'; return; }
+  if (p1 !== p2) { err.textContent = 'Las contraseñas no coinciden'; return; }
+  const salt = crypto.randomUUID();
+  localStorage.setItem('cv_salt', salt);
+  MASTER_KEY = await deriveKey(p1, salt);
+  DATA = {coins:[],airdrops:[],wallets:[],transactions:[]};
+  await saveData();
+  closeSetup();
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  renderAll();
+  fetchMarket();
+  toast('Vault creado. ¡Bienvenido!', 'success');
+}
+
+function lockApp() {
+  MASTER_KEY = null;
+  DATA = {coins:[],airdrops:[],wallets:[],transactions:[]};
+  prices = {};
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('lockScreen').style.display = 'flex';
+  document.getElementById('masterPwd').value = '';
+  document.getElementById('lockErr').textContent = '';
+}
+
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(page==='dashboard') renderDashboard();
+  if(page==='portfolio') renderPortfolio();
+  if(page==='airdrops') renderAirdrops();
+  if(page==='wallets') renderWallets();
+  if(page==='transactions') renderTx();
+}
+
+async function fetchPrices() {
+  const syms = [...new Set(DATA.coins.map(c => c.symbol.toUpperCase()))];
+  if (!syms.length) { updateLastUpdate(); return; }
+  const ids = syms.map(s => COIN_IDS[s] || s.toLowerCase()).filter(Boolean).join(',');
+  try {
+    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur&include_24hr_change=true`);
+    const data = await r.json();
+    syms.forEach(sym => {
+      const id = COIN_IDS[sym] || sym.toLowerCase();
+      if (data[id]) prices[sym] = {price: data[id].eur, change: data[id].eur_24h_change};
+    });
+    updateLastUpdate();
+  } catch(e) { updateLastUpdate('Sin conexión · Usando precios de compra'); }
+}
+
+async function refreshPrices() {
+  document.getElementById('lastUpdate').textContent = 'Actualizando...';
+  await fetchPrices();
+  fetchMarket();
+  renderDashboard();
+  renderPortfolio();
+}
+
+function updateLastUpdate(msg) {
+  const el = document.getElementById('lastUpdate');
+  if (el) el.textContent = msg || 'Actualizado: ' + new Date().toLocaleTimeString('es-ES');
+}
+
+function calcPortfolio() {
+  let total = 0, invested = 0;
+  DATA.coins.forEach(c => {
+    const p = prices[c.symbol.toUpperCase()];
+    const price = p ? p.price : (c.buyPrice || 0);
+    total += price * c.amount;
+    invested += (c.buyPrice || 0) * c.amount;
+  });
+  return {total, invested, pnl: total - invested};
+}
+
+function fmt(n) { return n.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmt4(n) { return n.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:4}); }
+
+function coinColor(sym) {
+  const c = {'BTC':'#f7931a','ETH':'#627eea','BNB':'#f3ba2f','SOL':'#9945ff','ADA':'#0033ad','XRP':'#00aae4','DOT':'#e6007a','AVAX':'#e84142','MATIC':'#8247e5','LINK':'#375bd2','DOGE':'#c3a20c','SHIB':'#e5a10c'};
+  return c[sym.toUpperCase()] || '#3b82f6';
+}
+
+function renderAll() { renderDashboard(); renderPortfolio(); renderAirdrops(); renderWallets(); renderTx(); }
+
+function renderDashboard() {
+  const {total, invested, pnl} = calcPortfolio();
+  const pnlPct = invested > 0 ? (pnl/invested*100) : 0;
+  document.getElementById('totalValue').textContent = '€' + fmt(total);
+  const pe = document.getElementById('totalPnl');
+  pe.textContent = (pnl>=0?'+':'') + '€' + fmt(Math.abs(pnl));
+  pe.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('pnlPct').innerHTML = `<span class="${pnl>=0?'pos':'neg'}">${pnl>=0?'▲':'▼'} ${Math.abs(pnlPct).toFixed(2)}%</span>`;
+  document.getElementById('totalAssets').textContent = DATA.coins.length;
+  document.getElementById('activeAirdrops').textContent = DATA.airdrops.filter(a=>a.status==='activo'||a.status==='pendiente').length;
+  renderPie(total);
+  renderTopHoldings(total);
+}
+
+function renderPie(totalV) {
+  const ctx = document.getElementById('pieChart');
+  if (!ctx) return;
+  const labels=[], vals=[], colors=['#3b82f6','#a855f7','#22c55e','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899','#84cc16','#14b8a6'];
+  DATA.coins.forEach((c,i) => {
+    const p = prices[c.symbol.toUpperCase()];
+    const val = (p?p.price:c.buyPrice||0) * c.amount;
+    if(val>0){labels.push(c.symbol.toUpperCase());vals.push(parseFloat(val.toFixed(2)));}
+  });
+  if(pieChart){pieChart.destroy();pieChart=null;}
+  if(!vals.length) return;
+  pieChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels, datasets:[{data:vals, backgroundColor:colors.slice(0,vals.length), borderWidth:0, hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{
+      legend:{position:'right',labels:{color:'#7a8ba8',font:{size:11},padding:10,boxWidth:10}},
+      tooltip:{callbacks:{label:c=>`€${fmt(c.parsed)}`}}
+    }}
+  });
+}
+
+function renderTopHoldings(totalV) {
+  const el = document.getElementById('topHoldings');
+  if (!el) return;
+  const tv = totalV || 1;
+  const sorted = [...DATA.coins].sort((a,b)=>{
+    const av = (prices[a.symbol.toUpperCase()]?.price||a.buyPrice||0)*a.amount;
+    const bv = (prices[b.symbol.toUpperCase()]?.price||b.buyPrice||0)*b.amount;
+    return bv-av;
+  }).slice(0,6);
+  el.innerHTML = sorted.map(c => {
+    const p = prices[c.symbol.toUpperCase()];
+    const val = (p?p.price:c.buyPrice||0)*c.amount;
+    const pct = (val/tv*100).toFixed(1);
+    const chg = p?.change?.toFixed(2)||0;
+    return `<div style="display:flex;align-items:center;gap:.75rem">
+      <div class="coin-icon" style="background:${coinColor(c.symbol)};color:#fff">${c.symbol.substring(0,4).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;font-size:.875rem;font-weight:500"><span>${c.symbol.toUpperCase()}</span><span>€${fmt(val)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted)"><span>${pct}% del portfolio</span><span class="${parseFloat(chg)>=0?'pos':'neg'}">${parseFloat(chg)>=0?'+':''}${chg}%</span></div>
+        <div style="height:3px;background:var(--surface3);border-radius:2px;margin-top:.35rem"><div style="height:100%;width:${Math.min(pct,100)}%;background:${coinColor(c.symbol)};border-radius:2px"></div></div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:.9rem">Añade activos para ver tu portfolio</div>';
+}
+
+function renderPortfolio() {
+  const tbody = document.getElementById('portfolioTable');
+  if (!tbody) return;
+  tbody.innerHTML = DATA.coins.map((c,i) => {
+    const p = prices[c.symbol.toUpperCase()];
+    const price = p?.price || c.buyPrice || 0;
+    const chg = p?.change?.toFixed(2) || 0;
+    const val = price * c.amount;
+    const inv = (c.buyPrice||0) * c.amount;
+    const pnl = val - inv;
+    const pp = inv > 0 ? (pnl/inv*100).toFixed(2) : 0;
+    return `<tr>
+      <td><div class="coin-cell">
+        <div class="coin-icon" style="background:${coinColor(c.symbol)};color:#fff">${c.symbol.substring(0,4).toUpperCase()}</div>
+        <div><div style="font-weight:500">${c.symbol.toUpperCase()}</div><div style="font-size:.75rem;color:var(--muted)">${c.name||''}</div></div>
+      </div></td>
+      <td>€${fmt4(price)}</td>
+      <td><span class="badge ${parseFloat(chg)>=0?'badge-green':'badge-red'}">${parseFloat(chg)>=0?'+':''}${chg}%</span></td>
+      <td>${c.amount}</td>
+      <td>€${fmt(inv)}</td>
+      <td style="font-weight:500">€${fmt(val)}</td>
+      <td><span class="${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}€${fmt(Math.abs(pnl))} <span style="opacity:.7">(${pp}%)</span></span></td>
+      <td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:.3rem .55rem;font-size:.8rem;margin-right:.25rem" onclick="editCoin(${i})" title="Editar"><i class="ti ti-edit"></i></button><button class="btn btn-danger" style="padding:.3rem .55rem;font-size:.8rem" onclick="deleteCoin(${i})" title="Eliminar"><i class="ti ti-trash"></i></button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Sin activos. Pulsa "Añadir activo" para empezar.</td></tr>';
+}
+
+function renderAirdrops() {
+  const el = document.getElementById('airdropGrid');
+  if (!el) return;
+  const sc = {activo:'badge-green',pendiente:'badge-amber',terminado:'badge-blue',perdido:'badge-red'};
+  el.innerHTML = DATA.airdrops.map((a,i) => {
+    const done = a.tasks.filter(t=>t.done).length;
+    const total = a.tasks.length || 1;
+    const pct = Math.round(done/total*100);
+    return `<div class="airdrop-card">
+      <div class="airdrop-header">
+        <div class="airdrop-name">${a.name}</div>
+        <span class="badge ${sc[a.status]||'badge-amber'}">${a.status}</span>
+      </div>
+      <div style="font-size:.8rem;color:var(--muted)">${a.chain||'Sin red'} · ${a.date||'Sin fecha'}</div>
+      <div style="font-size:.8rem;color:var(--muted);margin-top:.2rem">Valor estimado: ${a.value?'€'+a.value:'?'}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:.75rem;color:var(--muted)">${done}/${a.tasks.length} tareas · ${pct}%</div>
+      <div class="task-list">${a.tasks.map((t,j)=>`
+        <div class="task-item ${t.done?'done':''}" onclick="toggleTask(${i},${j})">
+          <div class="task-check">${t.done?'✓':''}</div>${t.label}
+        </div>`).join('')}
+      </div>
+      ${a.notes?`<div style="font-size:.8rem;color:var(--muted);margin-top:.75rem;padding:.6rem;background:var(--surface2);border-radius:6px">${a.notes}</div>`:''}
+      <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <button class="btn btn-ghost" style="font-size:.78rem;padding:.35rem .7rem" onclick="editAirdrop(${i})"><i class="ti ti-edit"></i> Editar</button>
+        <button class="btn btn-danger" style="font-size:.78rem;padding:.35rem .7rem" onclick="deleteAirdrop(${i})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);padding:2rem;grid-column:1/-1">Sin airdrops. Añade uno con el botón de arriba.</div>';
+}
+
+async function toggleTask(ai, ti) {
+  DATA.airdrops[ai].tasks[ti].done = !DATA.airdrops[ai].tasks[ti].done;
+  await saveData();
+  renderAirdrops();
+  renderDashboard();
+}
+
+function renderWallets() {
+  const el = document.getElementById('walletGrid');
+  if (!el) return;
+  const nc = {Ethereum:'#627eea',Solana:'#9945ff',Bitcoin:'#f7931a',BSC:'#f3ba2f',Polygon:'#8247e5',Avalanche:'#e84142',Cosmos:'#2e3148',Other:'#3b82f6'};
+  el.innerHTML = DATA.wallets.map((w,i) => `
+    <div class="wallet-card">
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem">
+        <div class="coin-icon" style="background:${nc[w.network]||'#3b82f6'};color:#fff;font-size:.7rem">${(w.network||'?').substring(0,3).toUpperCase()}</div>
+        <div>
+          <div style="font-weight:600">${w.name}</div>
+          <div style="font-size:.75rem;color:var(--muted)">${w.network||'Red desconocida'}</div>
+        </div>
+      </div>
+      ${w.address?`
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.3rem">Dirección pública</div>
+      <div class="key-hidden" id="addr-${i}">${maskKey(w.address)}</div>
+      <div style="display:flex;gap:.5rem;margin-top:.3rem">
+        <button class="reveal-btn" onclick="toggleReveal('addr-${i}','${esc(w.address)}')"><i class="ti ti-eye"></i> Revelar</button>
+        <button class="reveal-btn" onclick="copyClip('${esc(w.address)}')"><i class="ti ti-copy"></i> Copiar</button>
+      </div>`:''}
+      ${w.privateKey?`
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.75rem;margin-bottom:.3rem">Clave privada <span class="badge badge-red" style="font-size:.65rem">CIFRADA</span></div>
+      <div class="key-hidden" id="pk-${i}">${'•'.repeat(24)}</div>
+      <button class="reveal-btn" onclick="revealSecret(${i},'pk')"><i class="ti ti-shield"></i> Revelar (requiere contraseña)</button>`:''}
+      ${w.seedPhrase?`
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.75rem;margin-bottom:.3rem">Seed phrase <span class="badge badge-red" style="font-size:.65rem">CIFRADA</span></div>
+      <div class="key-hidden" id="seed-${i}">${'•'.repeat(32)}</div>
+      <button class="reveal-btn" onclick="revealSecret(${i},'seed')"><i class="ti ti-shield"></i> Revelar (requiere contraseña)</button>`:''}
+      ${w.notes?`<div style="font-size:.8rem;color:var(--muted);margin-top:.75rem">${w.notes}</div>`:''}
+      <div style="margin-top:.75rem">
+        <button class="btn btn-danger" style="font-size:.78rem;padding:.35rem .7rem" onclick="deleteWallet(${i})"><i class="ti ti-trash"></i> Eliminar</button>
+      </div>
+    </div>`).join('') || '<div style="color:var(--muted);padding:2rem;grid-column:1/-1">Sin wallets. Añade una con el botón de arriba.</div>';
+}
+
+function maskKey(k) { if(!k||k.length<14) return k||'—'; return k.substring(0,6)+'...'+k.substring(k.length-4); }
+function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+let revealed = {};
+function toggleReveal(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (revealed[id]) { el.textContent = maskKey(val); delete revealed[id]; }
+  else { el.textContent = val; revealed[id] = true; }
+}
+
+async function revealSecret(i, type) {
+  const pwd = prompt('Introduce tu contraseña maestra:');
+  if (!pwd) return;
+  try {
+    const salt = localStorage.getItem('cv_salt');
+    const k = await deriveKey(pwd, salt);
+    const enc = type==='pk' ? DATA.wallets[i].privateKey : DATA.wallets[i].seedPhrase;
+    const plain = await decrypt(enc, k);
+    const id = type==='pk' ? `pk-${i}` : `seed-${i}`;
+    const el = document.getElementById(id);
+    if (el) { el.textContent = plain; setTimeout(()=>{ if(el) el.textContent = type==='pk'?'•'.repeat(24):'•'.repeat(32); }, 30000); }
+    toast('Revelado · Se oculta en 30 segundos', 'success');
+  } catch(e) { toast('Contraseña incorrecta', 'error'); }
+}
+
+function copyClip(text) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => toast('Copiado', 'success')).catch(()=> toast('No se pudo copiar', 'error'));
+}
+
+function renderTx() {
+  const tbody = document.getElementById('txTable');
+  if (!tbody) return;
+  const sorted = [...DATA.transactions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  tbody.innerHTML = sorted.map((t,i) => {
+    const total = t.amount * t.price;
+    return `<tr>
+      <td style="font-size:.85rem">${t.date||'—'}</td>
+      <td><span class="badge ${t.type==='compra'?'badge-green':'badge-red'}">${t.type}</span></td>
+      <td style="font-weight:500">${t.symbol.toUpperCase()}</td>
+      <td>${t.amount}</td>
+      <td>€${fmt(t.price)}</td>
+      <td style="font-weight:500">€${fmt(total)}</td>
+      <td style="font-size:.8rem;color:var(--muted)">${t.exchange||'—'}</td>
+      <td style="font-size:.8rem;color:var(--muted)">${t.notes||'—'}</td>
+      <td><button class="btn btn-ghost" style="padding:.3rem .55rem;font-size:.8rem" onclick="deleteTxByIdx(${i})"><i class="ti ti-trash"></i></button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sin transacciones registradas.</td></tr>';
+}
+
+// MODALES
+function openModal(type, data) {
+  const overlay = document.getElementById('modalOverlay');
+  const content = document.getElementById('modalContent');
+  overlay.classList.add('open');
+  if (type==='editCoin' && data!==undefined) {
+    const c = DATA.coins[data];
+    const currentPrice = prices[c.symbol.toUpperCase()]?.price || c.buyPrice || 0;
+    content.innerHTML = `
+      <div class="modal-header"><div class="modal-title">Editar · ${c.symbol.toUpperCase()}</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
+      <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.83rem;color:var(--accent)">
+        Precio actual de mercado: <strong>€${currentPrice < 1 ? currentPrice.toFixed(6) : fmt(currentPrice)}</strong>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Símbolo</label><input id="e-sym" value="${c.symbol.toUpperCase()}" readonly style="opacity:.5;cursor:not-allowed"></div>
+        <div class="form-group"><label>Nombre</label><input id="e-name" value="${c.name||''}"></div>
+        <div class="form-group">
+          <label>Operación</label>
+          <select id="e-op" onchange="updateEditCalc()">
+            <option value="set">Establecer cantidad total</option>
+            <option value="buy">Comprar más</option>
+            <option value="sell">Vender una parte</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="e-amt-label">Cantidad actual: ${c.amount}</label>
+          <input id="e-amt" type="number" step="any" min="0" value="${c.amount}" oninput="updateEditCalc()">
+        </div>
+        <div class="form-group"><label>Precio medio de compra (€)</label><input id="e-price" type="number" step="any" min="0" value="${c.buyPrice||0}" oninput="updateEditCalc()"></div>
+        <div class="form-group"><label>Exchange</label><input id="e-exch" value="${c.exchange||''}"></div>
+        <div id="e-calc" style="grid-column:1/-1;background:var(--surface2);border-radius:8px;padding:.75rem 1rem;font-size:.85rem;color:var(--muted);display:none"></div>
+        <div class="form-group full"><label>Notas</label><textarea id="e-notes">${c.notes||''}</textarea></div>
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+        <button class="btn btn-primary" onclick="saveCoinEdit(${data})"><i class="ti ti-check"></i> Guardar cambios</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      </div>`;
+    updateEditCalc();
+  } else if (type==='addCoin') {
+    content.innerHTML = `
+      <div class="modal-header"><div class="modal-title">Añadir activo</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
+      <div class="form-grid">
+        <div class="form-group" style="position:relative">
+          <label>Buscar moneda *</label>
+          <input id="m-sym" placeholder="Escribe símbolo o nombre... BTC, Ethereum..." autocomplete="off" oninput="searchCoin(this.value)">
+          <div id="coin-suggestions" style="position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;z-index:999;max-height:200px;overflow-y:auto;display:none;margin-top:2px"></div>
+        </div>
+        <div class="form-group"><label>Nombre</label><input id="m-name" placeholder="Se rellena automáticamente"></div>
+        <div class="form-group"><label>Cantidad *</label><input id="m-amt" type="number" step="any" min="0" placeholder="0.5"></div>
+        <div class="form-group"><label>Precio de compra (€) *</label><input id="m-price" type="number" step="any" min="0" placeholder="Se rellena automáticamente"></div>
+        <div class="form-group"><label>Fecha de compra</label><input id="m-date" type="date"></div>
+        <div class="form-group"><label>Exchange</label><input id="m-exch" placeholder="Binance, Kraken..."></div>
+        <div class="form-group full"><label>Notas</label><textarea id="m-notes" placeholder="Estrategia, objetivo de precio..."></textarea></div>
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+        <button class="btn btn-primary" onclick="saveCoin()"><i class="ti ti-check"></i> Guardar</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      </div>`;
+  } else if (type==='addAirdrop') {
+    content.innerHTML = `
+      <div class="modal-header"><div class="modal-title">Añadir Airdrop</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Nombre del proyecto *</label><input id="a-name" placeholder="LayerZero, zkSync..."></div>
+        <div class="form-group"><label>Blockchain</label><input id="a-chain" placeholder="Ethereum, Solana..."></div>
+        <div class="form-group"><label>Estado</label><select id="a-status"><option>pendiente</option><option>activo</option><option>terminado</option><option>perdido</option></select></div>
+        <div class="form-group"><label>Fecha estimada</label><input id="a-date" type="date"></div>
+        <div class="form-group"><label>Valor estimado (€)</label><input id="a-value" type="number" step="any" placeholder="500"></div>
+        <div class="form-group"><label>Wallet asociada</label><input id="a-wallet" placeholder="Mi wallet ETH..."></div>
+        <div class="form-group full"><label>Tareas (una por línea)</label><textarea id="a-tasks" style="min-height:100px" placeholder="Hacer bridge&#10;Añadir liquidez&#10;Usar la dApp 5 veces"></textarea></div>
+        <div class="form-group full"><label>Notas / estrategia</label><textarea id="a-notes" placeholder="Links, requisitos, riesgo..."></textarea></div>
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+        <button class="btn btn-primary" onclick="saveAirdrop()"><i class="ti ti-check"></i> Guardar</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      </div>`;
+  } else if (type==='editAirdrop' && data) {
+    const a = data;
+    content.innerHTML = `
+      <div class="modal-header"><div class="modal-title">Editar Airdrop</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Nombre</label><input id="a-name" value="${a.name}"></div>
+        <div class="form-group"><label>Blockchain</label><input id="a-chain" value="${a.chain||''}"></div>
+        <div class="form-group"><label>Estado</label><select id="a-status">
+          <option ${a.status==='pendiente'?'selected':''}>pendiente</option>
+          <option ${a.status==='activo'?'selected':''}>activo</option>
+          <option ${a.status==='terminado'?'selected':''}>terminado</option>
+          <option ${a.status==='perdido'?'selected':''}>perdido</option>
+        </select></div>
+        <div class="form-group"><label>Fecha</label><input id="a-date" type="date" value="${a.date||''}"></div>
+        <div class="form-group"><label>Valor (€)</label><input id="a-value" type="number" value="${a.value||''}"></div>
+        <div class="form-group"><label>Wallet</label><input id="a-wallet" value="${a.wallet||''}"></div>
+        <div class="form-group full"><label>Tareas</label><textarea id="a-tasks" style="min-height:100px">${a.tasks.map(t=>t.label).join('\n')}</textarea></div>
+        <div class="form-group full"><label>Notas</label><textarea id="a-notes">${a.notes||''}</textarea></div>
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+        <button class="btn btn-primary" onclick="saveAirdrop(${a._idx})"><i class="ti ti-check"></i> Guardar</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      </div>`;
+  } else if (type==='addWallet') {
+    content.innerHTML = `
+      <div class="modal-header"><div class="modal-title">Añadir Wallet</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
+      <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.83rem;color:var(--amber)">
+        <i class="ti ti-shield-lock"></i> Las claves privadas y seeds se cifran con AES-256 antes de guardarse. Solo tú puedes verlas.
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Nombre *</label><input id="w-name" placeholder="Mi wallet ETH principal"></div>
+        <div class="form-group"><label>Red</label><select id="w-net"><option>Ethereum</option><option>Bitcoin</option><option>Solana</option><option>BSC</option><option>Polygon</option><option>Avalanche</option><option>Cosmos</option><option>Other</option></select></div>
+        <div class="form-group full"><label>Dirección pública</label><input id="w-addr" placeholder="0x... o bc1... o la dirección de tu red"></div>
+        <div class="form-group full"><label>Clave privada (opcional · se cifrará)</label><input id="w-pk" type="password" placeholder="Tu clave privada..."></div>
+        <div class="form-group full"><label>Seed phrase (opcional · se cifrará)</label><textarea id="w-seed" placeholder="palabra1 palabra2 palabra3 palabra4..." style="min-height:70px"></textarea></div>
+        <div class="form-group full"><label>Notas</label><textarea id="w-notes" placeholder="Exchange de origen, propósito de la wallet..."></textarea></div>
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+        <button class="btn btn-primary" onclick="saveWallet()"><i class="ti ti-lock"></i> Guardar cifrada</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      </div>`;
+  } else if (type==='addTx') {
+    content.innerHTML = `
+      <div class="modal-header"><div class="modal-title">Registrar transacción</div><button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Tipo</label><select id="t-type"><option>compra</option><option>venta</option></select></div>
+        <div class="form-group"><label>Símbolo *</label><input id="t-sym" placeholder="BTC" oninput="this.value=this.value.toUpperCase()"></div>
+        <div class="form-group"><label>Cantidad *</label><input id="t-amt" type="number" step="any" min="0" placeholder="0.1"></div>
+        <div class="form-group"><label>Precio por unidad (€) *</label><input id="t-price" type="number" step="any" min="0" placeholder="45000"></div>
+        <div class="form-group"><label>Fecha</label><input id="t-date" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div class="form-group"><label>Exchange</label><input id="t-exch" placeholder="Binance, Coinbase..."></div>
+        <div class="form-group full"><label>Notas</label><textarea id="t-notes" placeholder="Observaciones, estrategia..."></textarea></div>
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+        <button class="btn btn-primary" onclick="saveTx()"><i class="ti ti-check"></i> Guardar</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      </div>`;
+  }
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+document.getElementById('modalOverlay').addEventListener('click', e => { if(e.target===document.getElementById('modalOverlay')) closeModal(); });
+
+async function saveCoin() {
+  const sym = document.getElementById('m-sym').value.trim().toUpperCase();
+  const amt = parseFloat(document.getElementById('m-amt').value);
+  const price = parseFloat(document.getElementById('m-price').value);
+  if (!sym || isNaN(amt) || isNaN(price)) { toast('Rellena los campos obligatorios (*)', 'error'); return; }
+  const name = document.getElementById('m-name').value || sym;
+  DATA.coins.push({symbol:sym, name, amount:amt, buyPrice:price, date:document.getElementById('m-date').value, exchange:document.getElementById('m-exch').value, notes:document.getElementById('m-notes').value});
+  selectedCoinData = null;
+  await saveData();
+  closeModal();
+  await fetchPrices();
+  renderAll();
+  toast('Activo añadido', 'success');
+}
+
+async function deleteCoin(i) {
+  if (!confirm('¿Eliminar este activo?')) return;
+  DATA.coins.splice(i,1);
+  await saveData();
+  renderAll();
+  toast('Activo eliminado', 'success');
+}
+
+async function saveAirdrop(idx) {
+  const name = document.getElementById('a-name').value.trim();
+  if (!name) { toast('El nombre es obligatorio', 'error'); return; }
+  const taskLines = document.getElementById('a-tasks').value.split('\n').filter(t=>t.trim());
+  const tasks = taskLines.map(l => {
+    const existing = idx!==undefined ? DATA.airdrops[idx].tasks.find(t=>t.label===l.trim()) : null;
+    return {label:l.trim(), done: existing ? existing.done : false};
+  });
+  const obj = {name, chain:document.getElementById('a-chain').value, status:document.getElementById('a-status').value, date:document.getElementById('a-date').value, value:document.getElementById('a-value').value, wallet:document.getElementById('a-wallet').value, tasks, notes:document.getElementById('a-notes').value};
+  if (idx!==undefined) DATA.airdrops[idx]=obj; else DATA.airdrops.push(obj);
+  await saveData();
+  closeModal();
+  renderAirdrops();
+  renderDashboard();
+  toast('Airdrop guardado', 'success');
+}
+
+function editAirdrop(i) { openModal('editAirdrop', {...DATA.airdrops[i], _idx:i}); }
+
+async function deleteAirdrop(i) {
+  if (!confirm('¿Eliminar este airdrop?')) return;
+  DATA.airdrops.splice(i,1);
+  await saveData();
+  renderAirdrops();
+  renderDashboard();
+}
+
+async function saveWallet() {
+  const name = document.getElementById('w-name').value.trim();
+  if (!name) { toast('El nombre es obligatorio', 'error'); return; }
+  const pk = document.getElementById('w-pk').value;
+  const seed = document.getElementById('w-seed').value;
+  const w = {name, network:document.getElementById('w-net').value, address:document.getElementById('w-addr').value, notes:document.getElementById('w-notes').value};
+  if (pk) w.privateKey = await encrypt(pk, MASTER_KEY);
+  if (seed) w.seedPhrase = await encrypt(seed, MASTER_KEY);
+  DATA.wallets.push(w);
+  await saveData();
+  closeModal();
+  renderWallets();
+  toast('Wallet guardada y cifrada', 'success');
+}
+
+async function deleteWallet(i) {
+  if (!confirm('¿Eliminar esta wallet? Esta acción no se puede deshacer.')) return;
+  DATA.wallets.splice(i,1);
+  await saveData();
+  renderWallets();
+  toast('Wallet eliminada', 'success');
+}
+
+async function saveTx() {
+  const sym = document.getElementById('t-sym').value.trim().toUpperCase();
+  const amt = parseFloat(document.getElementById('t-amt').value);
+  const price = parseFloat(document.getElementById('t-price').value);
+  if (!sym || isNaN(amt) || isNaN(price)) { toast('Rellena los campos obligatorios (*)', 'error'); return; }
+  DATA.transactions.push({type:document.getElementById('t-type').value, symbol:sym, amount:amt, price, date:document.getElementById('t-date').value, exchange:document.getElementById('t-exch').value, notes:document.getElementById('t-notes').value});
+  await saveData();
+  closeModal();
+  renderTx();
+  toast('Transacción registrada', 'success');
+}
+
+function deleteTxByIdx(sortedIdx) {
+  const sorted = [...DATA.transactions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const tx = sorted[sortedIdx];
+  const realIdx = DATA.transactions.indexOf(tx);
+  if (realIdx < 0) return;
+  if (!confirm('¿Eliminar esta transacción?')) return;
+  DATA.transactions.splice(realIdx,1);
+  saveData();
+  renderTx();
+  toast('Transacción eliminada', 'success');
+}
+
+async function changePwd() {
+  const curr = document.getElementById('currPwd').value;
+  const np = document.getElementById('nPwd').value;
+  const np2 = document.getElementById('nPwd2').value;
+  if (np !== np2) { toast('Las contraseñas no coinciden', 'error'); return; }
+  if (np.length < 8) { toast('Mínimo 8 caracteres', 'error'); return; }
+  const salt = localStorage.getItem('cv_salt');
+  let oldKey;
+  try { oldKey = await deriveKey(curr, salt); await decrypt(localStorage.getItem('cv_data'), oldKey); }
+  catch(e) { toast('Contraseña actual incorrecta', 'error'); return; }
+  const newSalt = crypto.randomUUID();
+  localStorage.setItem('cv_salt', newSalt);
+  MASTER_KEY = await deriveKey(np, newSalt);
+  for (let w of DATA.wallets) {
+    if (w.privateKey) { const pl = await decrypt(w.privateKey, oldKey); w.privateKey = await encrypt(pl, MASTER_KEY); }
+    if (w.seedPhrase) { const pl = await decrypt(w.seedPhrase, oldKey); w.seedPhrase = await encrypt(pl, MASTER_KEY); }
+  }
+  await saveData();
+  toast('Contraseña cambiada. Todas las claves re-cifradas.', 'success');
+  document.getElementById('currPwd').value='';
+  document.getElementById('nPwd').value='';
+  document.getElementById('nPwd2').value='';
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify({cv_salt:localStorage.getItem('cv_salt'),cv_data:localStorage.getItem('cv_data')})], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cryptovault-backup-'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+  toast('Backup exportado', 'success');
+}
+
+async function importData(input) {
+  const file = input.files[0]; if (!file) return;
+  try {
+    const obj = JSON.parse(await file.text());
+    if (!obj.cv_salt || !obj.cv_data) { toast('Archivo inválido', 'error'); return; }
+    const pwd = prompt('Introduce la contraseña maestra del backup:');
+    if (!pwd) return;
+    const k = await deriveKey(pwd, obj.cv_salt);
+    const json = await decrypt(obj.cv_data, k);
+    JSON.parse(json);
+    localStorage.setItem('cv_salt', obj.cv_salt);
+    localStorage.setItem('cv_data', obj.cv_data);
+    MASTER_KEY = k;
+    DATA = JSON.parse(json);
+    await fetchPrices();
+    renderAll();
+    toast('Backup importado correctamente', 'success');
+  } catch(e) { toast('Error: contraseña incorrecta o archivo inválido', 'error'); }
+  input.value = '';
+}
+
+function confirmClear() {
+  if (confirm('¿Borrar TODOS los datos del vault? Esta acción es IRREVERSIBLE.')) {
+    if (confirm('Confirmación final: ¿borrar todo?')) {
+      localStorage.removeItem('cv_data');
+      localStorage.removeItem('cv_salt');
+      lockApp();
+      toast('Vault eliminado', 'error');
+    }
+  }
+}
+
+function toast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => { t.className = 'toast'; }, 3500);
+}
+
+// Auto-refresh cada 2 minutos
+setInterval(() => { if (MASTER_KEY) fetchPrices().then(() => { renderDashboard(); renderPortfolio(); }); fetchMarket(); }, 120000);
+
+function editCoin(i) { openModal('editCoin', i); }
+
+function updateEditCalc() {
+  const op = document.getElementById('e-op')?.value;
+  const amt = parseFloat(document.getElementById('e-amt')?.value) || 0;
+  const price = parseFloat(document.getElementById('e-price')?.value) || 0;
+  const label = document.getElementById('e-amt-label');
+  const calc = document.getElementById('e-calc');
+  if (!op || !label || !calc) return;
+
+  if (op === 'set') {
+    label.textContent = 'Nueva cantidad total';
+    calc.style.display = 'none';
+  } else if (op === 'buy') {
+    label.textContent = 'Cantidad a comprar';
+    // Find current coin index from modal title
+    const title = document.querySelector('.modal-title')?.textContent || '';
+    const sym = title.replace('Editar · ', '').trim();
+    const coin = DATA.coins.find(c => c.symbol.toUpperCase() === sym);
+    if (coin && amt > 0) {
+      const newTotal = coin.amount + amt;
+      const newAvg = ((coin.buyPrice * coin.amount) + (price * amt)) / newTotal;
+      calc.style.display = 'block';
+      calc.innerHTML = `Nueva cantidad total: <strong style="color:var(--text)">${newTotal.toFixed(6)}</strong> · Precio medio resultante: <strong style="color:var(--text)">€${newAvg.toFixed(4)}</strong>`;
+    }
+  } else if (op === 'sell') {
+    label.textContent = 'Cantidad a vender';
+    const title = document.querySelector('.modal-title')?.textContent || '';
+    const sym = title.replace('Editar · ', '').trim();
+    const coin = DATA.coins.find(c => c.symbol.toUpperCase() === sym);
+    if (coin && amt > 0) {
+      const remaining = coin.amount - amt;
+      const pnl = (price - coin.buyPrice) * amt;
+      calc.style.display = 'block';
+      calc.innerHTML = `Cantidad restante: <strong style="color:var(--text)">${Math.max(0,remaining).toFixed(6)}</strong> · P&L de esta venta: <strong style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?'+':''}€${fmt(Math.abs(pnl))}</strong>`;
+    }
+  }
+}
+
+async function saveCoinEdit(i) {
+  const op = document.getElementById('e-op').value;
+  const amt = parseFloat(document.getElementById('e-amt').value);
+  const price = parseFloat(document.getElementById('e-price').value);
+  if (isNaN(amt) || amt < 0) { toast('Cantidad inválida', 'error'); return; }
+
+  const coin = DATA.coins[i];
+  if (op === 'set') {
+    coin.amount = amt;
+    coin.buyPrice = price;
+  } else if (op === 'buy') {
+    const newTotal = coin.amount + amt;
+    coin.buyPrice = ((coin.buyPrice * coin.amount) + (price * amt)) / newTotal;
+    coin.amount = newTotal;
+  } else if (op === 'sell') {
+    if (amt > coin.amount) { toast('No puedes vender más de lo que tienes', 'error'); return; }
+    coin.amount = parseFloat((coin.amount - amt).toFixed(8));
+    if (coin.amount <= 0) {
+      if (confirm('Has vendido todo. ¿Eliminar el activo?')) { DATA.coins.splice(i,1); }
+      else { coin.amount = 0; }
+    }
+  }
+  coin.name = document.getElementById('e-name').value || coin.name;
+  coin.exchange = document.getElementById('e-exch').value;
+  coin.notes = document.getElementById('e-notes').value;
+
+  await saveData();
+  closeModal();
+  renderAll();
+  toast('Activo actualizado', 'success');
+}
+
+// ========== AUTOCOMPLETE MONEDAS ==========
+const COIN_LIST = [
+  {s:'BTC',n:'Bitcoin'},{s:'ETH',n:'Ethereum'},{s:'BNB',n:'BNB'},{s:'SOL',n:'Solana'},
+  {s:'XRP',n:'XRP'},{s:'ADA',n:'Cardano'},{s:'AVAX',n:'Avalanche'},{s:'DOT',n:'Polkadot'},
+  {s:'MATIC',n:'Polygon'},{s:'LINK',n:'Chainlink'},{s:'UNI',n:'Uniswap'},{s:'ATOM',n:'Cosmos'},
+  {s:'NEAR',n:'NEAR Protocol'},{s:'FTM',n:'Fantom'},{s:'ALGO',n:'Algorand'},{s:'VET',n:'VeChain'},
+  {s:'ICP',n:'Internet Computer'},{s:'FIL',n:'Filecoin'},{s:'DOGE',n:'Dogecoin'},{s:'SHIB',n:'Shiba Inu'},
+  {s:'LTC',n:'Litecoin'},{s:'BCH',n:'Bitcoin Cash'},{s:'APT',n:'Aptos'},{s:'ARB',n:'Arbitrum'},
+  {s:'OP',n:'Optimism'},{s:'SUI',n:'Sui'},{s:'INJ',n:'Injective'},{s:'TIA',n:'Celestia'},
+  {s:'WIF',n:'dogwifhat'},{s:'PEPE',n:'Pepe'},{s:'BONK',n:'Bonk'},{s:'JUP',n:'Jupiter'},
+  {s:'SAND',n:'The Sandbox'},{s:'MANA',n:'Decentraland'},{s:'AXS',n:'Axie Infinity'},
+  {s:'AAVE',n:'Aave'},{s:'MKR',n:'Maker'},{s:'SNX',n:'Synthetix'},{s:'CRV',n:'Curve DAO'},
+  {s:'LDO',n:'Lido DAO'},{s:'RUNE',n:'THORChain'},{s:'KSM',n:'Kusama'},{s:'EGLD',n:'MultiversX'},
+  {s:'FLOW',n:'Flow'},{s:'XTZ',n:'Tezos'},{s:'EOS',n:'EOS'},{s:'XLM',n:'Stellar'},
+  {s:'HBAR',n:'Hedera'},{s:'QNT',n:'Quant'},{s:'GRT',n:'The Graph'},{s:'ENS',n:'Ethereum Name Service'},
+  {s:'1INCH',n:'1inch'},{s:'COMP',n:'Compound'},{s:'BAL',n:'Balancer'},{s:'YFI',n:'yearn.finance'},
+  {s:'SUSHI',n:'SushiSwap'},{s:'CAKE',n:'PancakeSwap'},{s:'ROSE',n:'Oasis Network'},
+  {s:'ZIL',n:'Zilliqa'},{s:'ONE',n:'Harmony'},{s:'ICX',n:'ICON'},{s:'KAVA',n:'Kava'},
+  {s:'BAND',n:'Band Protocol'},{s:'ANKR',n:'Ankr'},{s:'CRO',n:'Cronos'},{s:'FTT',n:'FTX Token'},
+  {s:'GMT',n:'STEPN'},{s:'APE',n:'ApeCoin'},{s:'LRC',n:'Loopring'},{s:'IMX',n:'Immutable'},
+  {s:'BLUR',n:'Blur'},{s:'MAGIC',n:'Magic'},{s:'GMX',n:'GMX'},{s:'STX',n:'Stacks'},
+  {s:'CFX',n:'Conflux'},{s:'AGIX',n:'SingularityNET'},{s:'FET',n:'Fetch.ai'},{s:'OCEAN',n:'Ocean Protocol'},
+  {s:'RNDR',n:'Render'},{s:'HNT',n:'Helium'},{s:'IOTA',n:'IOTA'},{s:'XMR',n:'Monero'},
+  {s:'ZEC',n:'Zcash'},{s:'DASH',n:'Dash'},{s:'DCR',n:'Decred'},{s:'NEO',n:'NEO'},
+  {s:'WAVES',n:'Waves'},{s:'SC',n:'Siacoin'},{s:'DGB',n:'DigiByte'},{s:'RVN',n:'Ravencoin'},
+  {s:'W',n:'Wormhole'},{s:'PYTH',n:'Pyth Network'},{s:'SEI',n:'Sei'},{s:'STRK',n:'Starknet'},
+  {s:'MEME',n:'Memecoin'},{s:'FLOKI',n:'Floki'},{s:'BABYDOGE',n:'Baby Doge Coin'},
+  {s:'TON',n:'Toncoin'},{s:'NOT',n:'Notcoin'},{s:'DOGS',n:'Dogs'},{s:'HMSTR',n:'Hamster Kombat'},
+  {s:'USDT',n:'Tether'},{s:'USDC',n:'USD Coin'},{s:'DAI',n:'Dai'},{s:'BUSD',n:'Binance USD'},
+  {s:'TUSD',n:'TrueUSD'},{s:'FRAX',n:'Frax'},{s:'LUSD',n:'Liquity USD'},
+  {s:'WBTC',n:'Wrapped Bitcoin'},{s:'STETH',n:'Lido Staked ETH'},{s:'CBETH',n:'Coinbase Wrapped Staked ETH'},
+  {s:'PENDLE',n:'Pendle'},{s:'ETHFI',n:'Ether.fi'},{s:'ENA',n:'Ethena'},{s:'LISTA',n:'Lista DAO'},
+  {s:'ZK',n:'ZKsync'},{s:'TAIKO',n:'Taiko'},{s:'ZETA',n:'ZetaChain'},{s:'ALT',n:'AltLayer'},
+  {s:'MANTA',n:'Manta Network'},{s:'PORTAL',n:'Portal'},{s:'DYM',n:'Dymension'},
+];
+
+let selectedCoinData = null;
+
+let searchTimer = null;
+
+function searchCoin(q) {
+  const box = document.getElementById('coin-suggestions');
+  if (!box) return;
+  const query = q.trim();
+  if (query.length < 2) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:.75rem 1rem;color:var(--muted);font-size:.85rem">Buscando...</div>';
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => doSearchCoin(query, box), 400);
+}
+
+async function doSearchCoin(query, box) {
+  const lq = query.toLowerCase();
+  let results = [];
+  if (marketData.length) {
+    results = marketData
+      .filter(c => c.symbol.toLowerCase().includes(lq) || c.name.toLowerCase().includes(lq))
+      .slice(0, 4)
+      .map(c => ({s: c.symbol.toUpperCase(), n: c.name, price: c.current_price, img: c.image, id: c.id}));
+  }
+  if (results.length < 3) {
+    const fromList = COIN_LIST
+      .filter(c => c.s.toLowerCase().includes(lq) || c.n.toLowerCase().includes(lq))
+      .filter(c => !results.find(r => r.s === c.s))
+      .slice(0, 4);
+    results = [...results, ...fromList];
+  }
+  if (results.length < 3) {
+    try {
+      const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
+      const data = await r.json();
+      const fromGecko = (data.coins || [])
+        .filter(c => !results.find(r => r.s === c.symbol.toUpperCase()))
+        .slice(0, 8)
+        .map(c => ({s: c.symbol.toUpperCase(), n: c.name, img: c.large || c.thumb, id: c.id}));
+      results = [...results, ...fromGecko];
+    } catch(e) {}
+  }
+  if (!results.length) {
+    box.innerHTML = `<div style="padding:.75rem 1rem;color:var(--muted);font-size:.85rem">Sin resultados para "${query}"</div>`;
+    return;
+  }
+  box.style.display = 'block';
+  box.innerHTML = results.map(c => {
+    const priceStr = c.price
+      ? `<span style="font-size:.8rem;color:var(--muted)">€${c.price < 0.01 ? c.price.toFixed(6) : c.price < 1 ? c.price.toFixed(4) : fmt(c.price)}</span>`
+      : `<span style="font-size:.75rem;color:var(--muted)">ver precio</span>`;
+    const sym = c.s.replace(/'/g, "\\'");
+    const name = c.n.replace(/'/g, "\\'");
+    const gid = (c.id || '').replace(/'/g, "\\'");
+    return `<div onclick="selectCoin('${sym}','${name}',${c.price || 'null'},'${gid}')"
+      style="display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;cursor:pointer;transition:background .1s"
+      onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''">
+      ${c.img
+        ? `<img src="${c.img}" style="width:26px;height:26px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">`
+        : `<div style="width:26px;height:26px;border-radius:50%;background:${coinColor(c.s)};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;font-weight:700">${c.s.substring(0,3)}</div>`}
+      <div style="flex:1;min-width:0">
+        <span style="font-weight:600;font-size:.875rem">${c.s}</span>
+        <span style="color:var(--muted);font-size:.8rem;margin-left:.4rem">${c.n}</span>
+      </div>
+      ${priceStr}
+    </div>`;
+  }).join('');
+}
+
+async function selectCoin(sym, name, price, geckoId) {
+  document.getElementById('m-sym').value = sym;
+  document.getElementById('m-name').value = name;
+  document.getElementById('coin-suggestions').style.display = 'none';
+  if (!price && geckoId) {
+    try {
+      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=eur`);
+      const data = await r.json();
+      price = data[geckoId]?.eur || null;
+    } catch(e) {}
+  }
+  if (price) document.getElementById('m-price').value = price < 0.01 ? price.toFixed(8) : price < 1 ? price.toFixed(6) : price.toFixed(2);
+  document.getElementById('m-amt').focus();
+  selectedCoinData = {sym, name, price};
+}
+
+document.addEventListener('click', e => {
+  const box = document.getElementById('coin-suggestions');
+  if (box && !box.contains(e.target) && e.target.id !== 'm-sym') box.style.display = 'none';
+});
+
+
+let marketData = [];
+
+async function fetchMarket() {
+  try {
+    const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&order=market_cap_desc&per_page=20&page=1&price_change_percentage=1h,24h,7d';
+    const r = await fetch(url);
+    marketData = await r.json();
+    renderMarket();
+  } catch(e) {
+    const el = document.getElementById('marketTable');
+    if (el) el.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1rem">Sin conexión · No se pudieron cargar los precios del mercado</td></tr>';
+  }
+}
+
+function fmtMktCap(n) {
+  if (n >= 1e12) return '€' + (n/1e12).toFixed(2) + 'T';
+  if (n >= 1e9) return '€' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '€' + (n/1e6).toFixed(2) + 'M';
+  return '€' + n.toLocaleString('es-ES');
+}
+
+function renderMarket() {
+  const el = document.getElementById('marketTable');
+  if (!el || !marketData.length) return;
+  el.innerHTML = marketData.map((c, i) => {
+    const p1h = c.price_change_percentage_1h_in_currency?.toFixed(2) || 0;
+    const p24h = c.price_change_percentage_24h_in_currency?.toFixed(2) || 0;
+    const p7d = c.price_change_percentage_7d_in_currency?.toFixed(2) || 0;
+    const inPortfolio = DATA.coins.some(x => x.symbol.toUpperCase() === c.symbol.toUpperCase());
+    return `<tr>
+      <td style="color:var(--muted);font-size:.8rem">${i+1}</td>
+      <td><div class="coin-cell">
+        <img src="${c.image}" style="width:28px;height:28px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
+        <div>
+          <div style="font-weight:500;font-size:.875rem">${c.name} ${inPortfolio ? '<span class="badge badge-blue" style="font-size:.65rem;padding:.15rem .4rem">en cartera</span>' : ''}</div>
+          <div style="font-size:.72rem;color:var(--muted)">${c.symbol.toUpperCase()}</div>
+        </div>
+      </div></td>
+      <td style="font-weight:500">€${c.current_price < 0.01 ? c.current_price.toFixed(6) : c.current_price < 1 ? c.current_price.toFixed(4) : fmt(c.current_price)}</td>
+      <td><span class="${parseFloat(p1h)>=0?'pos':'neg'}">${parseFloat(p1h)>=0?'+':''}${p1h}%</span></td>
+      <td><span class="${parseFloat(p24h)>=0?'pos':'neg'}">${parseFloat(p24h)>=0?'+':''}${p24h}%</span></td>
+      <td><span class="${parseFloat(p7d)>=0?'pos':'neg'}">${parseFloat(p7d)>=0?'+':''}${p7d}%</span></td>
+      <td style="color:var(--muted);font-size:.85rem">${fmtMktCap(c.market_cap)}</td>
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
